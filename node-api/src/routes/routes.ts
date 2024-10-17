@@ -5,7 +5,7 @@ import * as ApiController from '../controllers/apiController';
 
 const router = Router();
 
-router.post('/registerUser', ApiController.register);
+router.post('/registerUser', ApiController.registerUser);
 
 router.get('/listAll', ApiController.listAll);
 

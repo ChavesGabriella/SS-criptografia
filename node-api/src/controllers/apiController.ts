@@ -1,6 +1,37 @@
 import { Request, Response } from 'express';
 import { User } from '../models/User';
 import nodemailer, { SendMailOptions } from 'nodemailer';
+import JWT from "jsonwebtoken"
+import { error } from 'console';
+import { hash } from 'crypto';
+const bcrypt = require('bcrypt');
+
+export const registerUser = async (req: Request, res: Response) => {
+    const {email, password, name, discipline} = req.body;
+
+    if(email && password && name && discipline){
+        try{
+            let hasUser = await User.findOne({where: {email}});
+            if(!hasUser){
+                const saltRounds = 10;
+                const hashedPassword = await bcrypt.hash(password, saltRounds);
+                
+                let newUser = await User.create({
+                    email,
+                    password: hashedPassword,
+                    name,
+                    discipline
+                });
+            }
+        }catch (error){
+            console.error('Erro ao cadastrar usuário: ', error);
+            res.status(500).json({error: 'Erro interno ao processar o registro'});
+        }
+
+    }else{
+        res.status(400).json({error: 'E-mail, senha, nome e/ou disciplina não fornecidas'});
+    }
+}
 
 export const ping = (req: Request, res: Response) => {
     res.json({ pong: true });
@@ -70,8 +101,15 @@ export const forgotPassword = async (req: Request, res: Response) => {
         const user = await User.findOne({ where: { email } });
 
         if (!user) {
-            return res.json({ error: 'Usuário não encontrado.' });
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
         }
+
+        const randomPassword = Math.random().toString(36).slice(-8);
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(randomPassword, saltRounds);
+
+        user.password = hashedPassword;
+        await user.save();
 
         // Configuração do transporte de e-mail usando Nodemailer
         const transporter = nodemailer.createTransport({
@@ -92,7 +130,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
         };
 
         // Enviando o e-mail
-        transporter.sendMail(mailOptions, (error, info) => {
+        transporter.sendMail(mailOptions, (error: any, info: { response: any; }) => {
             if (error) {
                 console.error('Erro ao enviar o e-mail:', error);
                 return res.json({ error: 'Ocorreu um erro ao enviar o e-mail.' });
